@@ -4,9 +4,30 @@ import Ticket from './models/Ticket.js';
 import { verifyToken } from './middleware/auth.js';
 import { handleCustomerMessage } from './services/ticketFlow.js';
 
+const configuredOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://support-frontend-iota.vercel.app')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (configuredOrigins.includes(origin)) return true;
+  return /^https:\/\/.*\.vercel\.app$/.test(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+};
+
 export function initSocket(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173' },
+    cors: {
+      origin(origin, callback) {
+        if (isAllowedOrigin(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error(`Origin not allowed by CORS: ${origin}`));
+      },
+      credentials: true,
+    },
   });
 
   io.use(async (socket, next) => {
