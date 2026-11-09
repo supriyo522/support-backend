@@ -33,22 +33,30 @@ const server = http.createServer(app);
 const io = initSocket(server);
 app.set('io', io);
 
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://support-frontend-iota.vercel.app')
+const configuredOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,https://support-frontend-iota.vercel.app')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (configuredOrigins.includes(origin)) return true;
+  return /^https:\/\/.*\.vercel\.app$/.test(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+};
+
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+    if (isAllowedOrigin(origin)) {
+      callback(null, origin || true);
       return;
     }
 
-    callback(new Error('Not allowed by CORS'));
+    callback(new Error(`Origin not allowed by CORS: ${origin}`));
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json({ limit: '100kb' }));
 app.use(morgan('dev'));
